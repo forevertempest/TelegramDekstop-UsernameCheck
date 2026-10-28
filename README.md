@@ -28,7 +28,7 @@
 Требуется **Windows** и **Python 3.10+**.
 
 ```powershell
-git clone https://github.com/your-username/telegram-username-checker.git
+git clone https://github.com/forevertempest/TelegramDekstop-UsernameCheck.git
 cd telegram-username-checker
 pip install -r requirements.txt
 ```
