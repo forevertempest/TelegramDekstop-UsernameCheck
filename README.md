@@ -1,2 +1,114 @@
-# TelegramDekstop-UsernameCheck
-Fast Telegram username availability checker via Telegram Desktop (Win32 + UIA). Runs in the background without API keys, sessions, or account ban risks
+# Telegram Username Checker (UI Automation)
+
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
+![Telegram Desktop](https://img.shields.io/badge/Telegram_Desktop-UIA%20%2B%20Win32-26A5E4?style=flat-square&logo=telegram&logoColor=white)
+
+Быстрый чекер доступности юзернеймов через окно **Telegram Desktop** на Windows.  
+Работает без API-ключей (`api_id` / `api_hash`), сессий Telethon/Pyrogram и риска словить бан за сторонний клиент — ввод отправляется напрямую в окно Telegram через `Win32 PostMessage`, а ответ считывается из UI-дерева (`pywinauto`).
+
+---
+
+## Как это работает
+
+1. **Локальная фильтрация** — до отправки в Telegram скрипт очищает список от дубликатов, ссылок `t.me/`, символов `@` и сразу отбрасывает невалидные юзернеймы по правилам Telegram (длина `5..32`, не начинается с цифры/`_`, не заканчивается на `_`, нет `__` подряд).
+2. **Фоновый ввод (`Win32 API`)** — находит процесс `Telegram.exe` и поле `@username` (`Ui::UsernameInput`), после чего отправляет нажатия клавиш напрямую в дескриптор окна (`HWND`) через `PostMessage`. Мышь и клавиатура остаются свободными.
+3. **Чтение статуса (`UIA`)** — мгновенно парсит текстовые контролы окна (поддерживаются русский и английский интерфейсы Telegram) и классифицирует ответ:
+   - `✅ FREE` — имя свободно (сразу сохраняется в `free.txt`)
+   - `❌ TAKEN` — имя занято
+   - `💎 FRAGMENT` — имя продается на аукционе Fragment
+   - `⚠️ INVALID` — некорректное имя
+   - `⏳ RATE_LIMIT` — временное ограничение со стороны Telegram
+   - `❓ UNKNOWN` — ответ не успел появиться за `RESULT_TIMEOUT`
+
+---
+
+## Установка
+
+Требуется **Windows** и **Python 3.10+**.
+
+```powershell
+git clone https://github.com/your-username/telegram-username-checker.git
+cd telegram-username-checker
+pip install -r requirements.txt
+```
+
+---
+
+## Использование
+
+### 1. Подготовьте список
+Создайте файл `usernames.txt` в папке со скриптом и добавьте юзернеймы (по одному на строку). Поддерживаются любые форматы:
+```text
+example
+@user
+https://t.me/username_example
+```
+
+### 2. Откройте поле ввода `@username` в Telegram Desktop
+Откройте **Telegram Desktop** и перейдите в любое окно, где есть поле проверки юзернейма:
+- **Настройки - Мой аккаунт - Карандашик - Имя пользователя** *или*
+- Окно создания/настройки публичного канала или группы, где выбирается публичная ссылка `t.me/...`.
+
+> [!IMPORTANT]
+> Оставьте это диалоговое окно открытым. Сворачивать Telegram в трей нельзя, но поверх него можно открывать другие окна.
+
+### 3. Запустите чекер
+```powershell
+python checker.py
+```
+
+Все найденные свободные юзернеймы сохраняются в реальном времени в файл `free.txt` (если он уже существует - создаётся `free1.txt`, `free2.txt` и т.д., чтобы не перезаписать прошлые результаты). Остановить проверку в любой момент можно через `Ctrl+C` - итоговая статистика всё равно выведется в консоль.
+
+---
+
+## Пример вывода
+
+```text
+Telegram Username Checker FAST
+==================================================================
+загружено:        142
+локально INVALID: 8
+FREE-файл:        free.txt
+
+поле @username найдено.
+
+проверка запущена.
+
+[    1/142] @dev                            ❌ TAKEN       0.19s | 3.12/s
+[    2/142] @mognu                          💎 FRAGMENT    0.20s | 3.05/s
+[    3/142] @sosal                          ✅ FREE        0.19s | 3.09/s
+
+==================================================================
+ГОТОВО
+==================================================================
+✅ FREE:      1
+❌ TAKEN:     128
+💎 FRAGMENT:  11
+⚠️ INVALID:   10
+❓ UNKNOWN:   0
+
+проверено: 142
+время: 46.10 сек.
+скорость: 3.08 username/s
+
+свободные usernames:
+free.txt
+```
+
+---
+
+## Настройка таймингов (`checker.py`)
+
+В начале файла `checker.py` находятся параметры скорости и ожидания. Если интернет медленный и проскакивают статусы `UNKNOWN`, увеличьте `RESULT_TIMEOUT`:
+
+| Параметр | По умолчанию | Описание |
+| :--- | :---: | :--- |
+| `INPUT_FILE` | `"usernames.txt"` | Файл со списком юзернеймов для проверки |
+| `RESULT_TIMEOUT` | `0.30` | Максимальное время ожидания ответа от Telegram (сек) |
+| `POLL_INTERVAL` | `0.19` | Интервал опроса UI-контролов окна (сек) |
+| `MIN_RESULT_DELAY` | `0.19` | Минимальная задержка после ввода перед чтением статуса (сек) |
+| `CLEAR_STATUS_TIMEOUT` | `0.22` | Ожидание исчезновения старого статуса после очистки поля (сек) |
+| `AFTER_CLEAR_DELAY` | `0.15` | Пауза после очистки поля перед новым вводом (сек) |
+| `BETWEEN_USERNAMES` | `0.15` | Пауза между проверками юзернеймов (сек) |
+| `RETRIES` | `0` | Количество повторных попыток при получении `UNKNOWN` |
