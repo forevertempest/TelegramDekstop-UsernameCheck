@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.spec
+.venv/
+venv/
+env/
+free*.txt
+usernames.txt
+.idea/
+.vscode/
