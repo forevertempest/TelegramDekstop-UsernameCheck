@@ -29,7 +29,7 @@
 
 ```powershell
 git clone https://github.com/forevertempest/TelegramDekstop-UsernameCheck.git
-cd telegram-username-checker
+cd TelegramDekstop-UsernameCheck
 pip install -r requirements.txt
 ```
 
